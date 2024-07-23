@@ -1,0 +1,33 @@
+{
+  "_class_name": ["pipeline_stable_diffusion_interactdiffusion", "StableDiffusionInteractDiffusionPipeline"],
+  "_diffusers_version": "0.27.0.dev0",
+  "feature_extractor": [
+    null,
+    null
+  ],
+  "requires_safety_checker": false,
+  "safety_checker": [
+    null,
+    null
+  ],
+  "scheduler": [
+    "diffusers",
+    "DDIMScheduler"
+  ],
+  "text_encoder": [
+    "transformers",
+    "CLIPTextModel"
+  ],
+  "tokenizer": [
+    "transformers",
+    "CLIPTokenizer"
+  ],
+  "unet": [
+    "interactdiffusion_unet_2d_condition",
+    "InteractDiffusionUNet2DConditionModel"
+  ],
+  "vae": [
+    "diffusers",
+    "AutoencoderKL"
+  ]
+}
