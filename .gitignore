@@ -1,8 +1,7 @@
-
 __pycache__/
 *.safetensors
-./schedulers/*.safetensors
-./text_encoder/*.safetensors
-./tokenizer/*.safetensors
-./unet/*.safetensors
-./vae/*.safetensors
+/schedulers/*.safetensors
+/text_encoder/*.safetensors
+/tokenizer/*.safetensors
+/unet/*.safetensors
+/vae/*.safetensors
