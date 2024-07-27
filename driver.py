@@ -3,9 +3,9 @@ import json
 import torch
 from diffusers import DDIMScheduler, AutoencoderKL, DiffusionPipeline
 from transformers import CLIPTextModel, CLIPTokenizer
-from unet.interactdiffusion_unet_2d_condition import InteractDiffusionUNet2DConditionModel
+from unet.unet import InteractDiffusionUNet2DConditionModel
 
-from pipeline_stable_diffusion_interactdiffusion import StableDiffusionInteractDiffusionPipeline
+from pipeline import StableDiffusionInteractDiffusionPipeline
 
 def test_pipeline(pipeline, out_name):
     images = pipeline(
@@ -22,11 +22,10 @@ def test_pipeline(pipeline, out_name):
 
     images[0].save(f'./outputs/{out_name}.jpg')
 
-scheduler = DDIMScheduler.from_pretrained(pretrained_model_name_or_path = "./scheduler")
-vae = AutoencoderKL.from_pretrained(pretrained_model_name_or_path = "./vae", variant = "fp16")
-text_encoder = CLIPTextModel.from_pretrained("./text_encoder", variant = "fp16")
-tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path = "./tokenizer")
-#unet = InteractDiffusionUNet2DConditionModel.from_pretrained("./unet", variant = "fp16")
+#scheduler = DDIMScheduler.from_pretrained(pretrained_model_name_or_path = "./scheduler")
+#vae = AutoencoderKL.from_pretrained(pretrained_model_name_or_path = "./vae", variant = "fp16")
+#text_encoder = CLIPTextModel.from_pretrained("./text_encoder", variant = "fp16")
+#tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path = "./tokenizer")
 
 with open("./unet/config.json", 'r') as f:
     unet_configs = json.load(f)
@@ -35,8 +34,9 @@ del unet_configs["_class_name"]
 del unet_configs["_diffusers_version"]
 
 unet = InteractDiffusionUNet2DConditionModel(**unet_configs)
+print(unet.keys())
 
-pipeline = StableDiffusionInteractDiffusionPipeline(vae = vae, 
+"""pipeline = StableDiffusionInteractDiffusionPipeline(vae = vae, 
                                                  text_encoder=text_encoder, 
                                                  tokenizer=tokenizer, 
                                                  unet=unet, 
@@ -46,6 +46,6 @@ pipeline = StableDiffusionInteractDiffusionPipeline(vae = vae,
 
 pipeline = pipeline.to('cuda')
 
-test_pipeline(pipeline, "out3")
+test_pipeline(pipeline, "out3")"""
 
 #unet = InteractDiffusionUNet2DConditionModel.from_pretrained("./unet", variant = "fp16")
