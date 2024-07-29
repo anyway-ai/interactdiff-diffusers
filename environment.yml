@@ -1,0 +1,35 @@
+name: interactdiff
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python==3.8
+  - pytorch::pytorch
+  - torchvision
+  - torchaudio
+  - nvidia::cudatoolkit=11.7
+  - pip:
+      - albumentations
+      - opencv-python
+      - imageio
+      - imageio-ffmpeg
+      - pytorch-lightning
+      - omegaconf
+      - test-tube
+      - streamlit
+      - einops
+      - torch-fidelity
+      - git+https://github.com/openai/CLIP.git
+      - protobuf
+      - torchmetrics
+      - transformers<4.31.0
+      - diffusers
+      - kornia
+      - xformers
+      - gradio==3.36.1  # new gradio fail in load bounding box from examples
+      - gradio-client==0.2.9
+
+variables:
+  TF_CPP_MIN_LOG_LEVEL: 1
+  OMP_NUM_THREADS: 10

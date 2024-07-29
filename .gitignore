@@ -6,3 +6,4 @@ __pycache__/
 /tokenizer/*.safetensors
 /unet/*.safetensors
 /vae/*.safetensors
+/DATA/*
