@@ -2,6 +2,7 @@ import os
 import argparse
 import yaml
 import json
+import tqdm
 
 import torch
 from torch.cuda.amp import GradScaler
@@ -20,6 +21,23 @@ from torch.utils.data.distributed import DistributedSampler
 from preprocessor import preprocessor
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def run_one_step(batch, models):
+    batch = batch_to_device(batch, device)
+
+    x_start, timesteps, context, grounding_input = get_input(batch, models)
+
+    noise = torch.randn_like(x_start)
+    x_noisy = models['scheduler'].add_noise(original_samples = x_start, noise = noise, timesteps = timesteps)
+
+    cross_attention_kwargs = {}
+    cross_attention_kwargs['gligen'] = grounding_input
+    
+    output = models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
+    
+    loss = torch.nn.functional.mse_loss(output.sample, noise)
+    print(loss)
+
 
 def get_input(batch, models):
     z = models['vae'].encode(batch["image"]).latent_dist.sample()
@@ -78,11 +96,11 @@ def create_opt(config, unet):
             trainable_layers.append(name)
 
     opt = torch.optim.AdamW(
-        params=params, lr=config["lr"], weight_decay=config["weight_decay"]
+        params=params, lr=float(config["lr"]), weight_decay=float(config["weight_decay"])
     )
-    scaler = GradScaler(enabled=config["enabled"])
+    scaler = GradScaler()
     lr_scheduler = get_constant_schedule_with_warmup(
-        opt, num_warmup_steps=config["lr_warmup_steps"]
+        opt, num_warmup_steps=int(config["lr_warmup_steps"])
     )
 
     return opt, scaler, lr_scheduler, params, trainable_layers
@@ -130,6 +148,14 @@ def load_models(config):
     return models
 
 
+def train(config):
+    models = load_models(config["models_path"])
+    opt, scaler, lr_scheduler, _, _ = create_opt(config['training_params'], models['unet'])
+    train_loader = get_dataloader(config)
+    
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -141,11 +167,4 @@ if __name__ == "__main__":
     with open(args.config_file_path, "r") as f:
         config = yaml.safe_load(f)
 
-    models = load_models(config["models_path"])
-    # opt, scaler, lr_scheduler, _, _ = create_opt(config['training_params'], models['unet'])
-    dataloader = get_dataloader(config)
-    for data in dataloader:
-        print(get_input(batch_to_device(data, device), models))
-        break
-
-    print(len(dataloader))
+    train(config)

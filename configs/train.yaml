@@ -8,11 +8,10 @@ models_path:
 training_params:
   lr: 5e-5
   weight_decay: 0.0
-  warmup_steps: 10000
+  lr_warmup_steps: 10000
   scheduler_type: 'constant'
   amp_enabled: False
-  lr_scheduler_warmup_steps: 10000
-  batch_size: 2
+  batch_size: 4
   num_workers: 1
 
 train_dataset_names:
