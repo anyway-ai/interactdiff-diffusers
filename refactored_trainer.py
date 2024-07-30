@@ -36,7 +36,6 @@ def run_one_step(batch, models):
     output = models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
     
     loss = torch.nn.functional.mse_loss(output.sample, noise)
-    print(loss)
 
 
 def get_input(batch, models):
