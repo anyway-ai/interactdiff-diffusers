@@ -2,7 +2,7 @@ import os
 import argparse
 import yaml
 import json
-import tqdm
+from tqdm import tqdm
 
 import torch
 from torch.cuda.amp import GradScaler
@@ -36,6 +36,8 @@ def run_one_step(batch, models):
     output = models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
     
     loss = torch.nn.functional.mse_loss(output.sample, noise)
+
+    return loss
 
 
 def get_input(batch, models):
@@ -151,8 +153,22 @@ def train(config):
     models = load_models(config["models_path"])
     opt, scaler, lr_scheduler, _, _ = create_opt(config['training_params'], models['unet'])
     train_loader = get_dataloader(config)
-    
 
+    models['unet'].train()
+
+    for idx in tqdm(range(int(config['training_params']['num_iterations']))):
+        batch = next(train_loader)
+        batch_to_device(batch, device)
+
+        loss = run_one_step(batch, models)
+
+        scaler.scale(loss).backward()
+        scaler.step(opt)
+        scaler.update()
+        lr_scheduler.step()
+        opt.zero_grad()
+
+        print(f"Loss at Iteration {idx} : {loss.item()}")
 
 
 if __name__ == "__main__":

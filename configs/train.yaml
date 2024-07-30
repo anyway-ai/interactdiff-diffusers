@@ -4,7 +4,6 @@ models_path:
   text_encoder: "/home/interactdiff-diffusers/models/text_encoder"
   scheduler: "/home/interactdiff-diffusers/models/scheduler"
 
-
 training_params:
   lr: 5e-5
   weight_decay: 0.0
@@ -13,6 +12,7 @@ training_params:
   amp_enabled: False
   batch_size: 4
   num_workers: 1
+  num_iterations: 100
 
 train_dataset_names:
   HicoDetHOI:
