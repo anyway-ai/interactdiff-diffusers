@@ -3,7 +3,9 @@ import json
 import torch
 from diffusers import DDIMScheduler, AutoencoderKL, DiffusionPipeline
 from transformers import CLIPTextModel, CLIPTokenizer
-from unet.unet import InteractDiffusionUNet2DConditionModel
+from models.unet.unet import InteractDiffusionUNet2DConditionModel
+
+from safetensors.torch import load_file
 
 from pipeline import StableDiffusionInteractDiffusionPipeline
 
@@ -27,16 +29,17 @@ def test_pipeline(pipeline, out_name):
 #text_encoder = CLIPTextModel.from_pretrained("./text_encoder", variant = "fp16")
 #tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path = "./tokenizer")
 
-with open("./unet/config.json", 'r') as f:
+with open("./models/unet/config.json", 'r') as f:
     unet_configs = json.load(f)
 
 del unet_configs["_class_name"]
 del unet_configs["_diffusers_version"]
 
 unet = InteractDiffusionUNet2DConditionModel(**unet_configs)
-print(unet.keys())
+unet = unet.load_state_dict(load_file("/home/interactdiff-diffusers/models/unet/diffusion_pytorch_model.fp16.safetensors"))
 
-"""pipeline = StableDiffusionInteractDiffusionPipeline(vae = vae, 
+"""
+pipeline = StableDiffusionInteractDiffusionPipeline(vae = vae, 
                                                  text_encoder=text_encoder, 
                                                  tokenizer=tokenizer, 
                                                  unet=unet, 
@@ -46,6 +49,20 @@ print(unet.keys())
 
 pipeline = pipeline.to('cuda')
 
-test_pipeline(pipeline, "out3")"""
+test_pipeline(pipeline, "out3")
 
 #unet = InteractDiffusionUNet2DConditionModel.from_pretrained("./unet", variant = "fp16")
+#
+
+
+from diffusers import DiffusionPipeline
+import torch
+
+pipeline = DiffusionPipeline.from_pretrained(
+    "interactdiffusion/diffusers-v1-2",
+    trust_remote_code=True,
+    variant="fp16", torch_dtype=torch.float16
+)
+pipeline = pipeline.to("cuda")
+
+print(pipeline.vae)"""

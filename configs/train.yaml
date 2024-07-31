@@ -21,3 +21,4 @@ train_dataset_names:
     max_boxes_per_data: 30
     prob_use_caption: 0.5
     random_crop: False
+

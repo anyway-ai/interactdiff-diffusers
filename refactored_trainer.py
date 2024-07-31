@@ -5,17 +5,17 @@ import json
 from tqdm import tqdm
 
 import torch
+from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler
-
-from models.unet.unet import InteractDiffusionUNet2DConditionModel
-from models.text_encoder.text_encoder import FrozenCLIPEmbedder
 
 from diffusers import DDIMScheduler, AutoencoderKL
 from diffusers.optimization import get_constant_schedule_with_warmup
 
-from dataset.concat_dataset import ConCatDataset
-from torch.utils.data import DataLoader
+from safetensors.torch import load_file
 
+from models.unet.unet import InteractDiffusionUNet2DConditionModel
+from models.text_encoder.text_encoder import FrozenCLIPEmbedder
+from dataset.concat_dataset import ConCatDataset
 from preprocessor import preprocessor
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -26,28 +26,31 @@ class Trainer():
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
+        self.l_simple_weight = 1
+
         self.models = self.load_models(self.config["models_path"])
-        opt, scaler, lr_scheduler, _, _ = self.create_opt(self.config['training_params'], self.models['unet'])
-        train_loader = self.get_dataloader()
+        self.opt, self.scaler, self.lr_scheduler, _, _ = self.create_opt(self.config['training_params'])
+        self.train_loader = self.get_dataloader()
 
         self.models['unet'].train()
-        
-        self.train()
 
     def run_one_step(self, batch):
         batch = self.batch_to_device(batch, device)
 
-        x_start, timesteps, context, grounding_input = self.get_input(batch, self.models)
+        x_start, timesteps, context, grounding_input = self.get_input(batch)
 
         noise = torch.randn_like(x_start)
+        noise = noise * self.models['scheduler'].init_noise_sigma
+
         x_noisy = self.models['scheduler'].add_noise(original_samples = x_start, noise = noise, timesteps = timesteps)
+        x_noisy = self.models['scheduler'].scale_model_input(x_noisy, timesteps)
 
         cross_attention_kwargs = {}
         cross_attention_kwargs['gligen'] = grounding_input
         
         output = self.models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
         
-        loss = torch.nn.functional.mse_loss(output.sample, noise)
+        loss = torch.nn.functional.mse_loss(output.sample, noise) * self.l_simple_weight
 
         return loss
 
@@ -131,6 +134,8 @@ class Trainer():
         del unet_configs["_diffusers_version"]
 
         unet = InteractDiffusionUNet2DConditionModel(**unet_configs).to(device)
+        unet_state_dict = load_file(f"{config}/diffusion_pytorch_model.fp16.safetensors")
+        unet.load_state_dict(unet_state_dict)
         return unet
 
 
@@ -173,7 +178,8 @@ class Trainer():
             self.lr_scheduler.step()
             self.opt.zero_grad()
 
-            print(f"Loss at Iteration {idx} : {loss.item()}")
+            #print(f"Loss at Iteration {idx} : {loss}")
+            print(loss)
 
 
 if __name__ == "__main__":
@@ -184,3 +190,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    trainer = Trainer(args.config_file_path)
+    trainer.train()
