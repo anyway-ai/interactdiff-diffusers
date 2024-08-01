@@ -134,7 +134,7 @@ class Trainer():
         del unet_configs["_diffusers_version"]
 
         unet = InteractDiffusionUNet2DConditionModel(**unet_configs).to(device)
-        unet_state_dict = load_file(f"{config}/diffusion_pytorch_model.fp16.safetensors")
+        unet_state_dict = load_file(f"{config}/diffusion_pytorch_model.safetensors")
         unet.load_state_dict(unet_state_dict)
         return unet
 
@@ -142,7 +142,7 @@ class Trainer():
     def load_models(self, config):
         unet = self.load_custom_unet(config["unet"])
         vae = AutoencoderKL.from_pretrained(
-            pretrained_model_name_or_path=config["vae"], variant="fp16"
+            pretrained_model_name_or_path=config["vae"]
         ).to(device)
         text_encoder = FrozenCLIPEmbedder().to(device)
         scheduler = DDIMScheduler.from_pretrained(
