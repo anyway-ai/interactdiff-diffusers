@@ -11,6 +11,8 @@ from torch.cuda.amp import GradScaler
 from diffusers import DDIMScheduler, AutoencoderKL
 from diffusers.optimization import get_constant_schedule_with_warmup
 
+from transformers import CLIPTokenizer, CLIPTextModel
+
 from safetensors.torch import load_file
 
 from models.unet.unet import InteractDiffusionUNet2DConditionModel
@@ -53,10 +55,30 @@ class Trainer():
         loss = torch.nn.functional.mse_loss(output.sample, noise) * self.l_simple_weight
 
         return loss
+    
+    def encode_caption(self, caption):
+        if caption is not None and isinstance(caption, str):
+            batch_size = 1
+        elif caption is not None and isinstance(caption, list):
+            batch_size = len(caption)
 
+        text_inputs = self.models['tokenizer'](
+                caption,
+                padding="max_length",
+                max_length=self.models['tokenizer'].model_max_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+        text_input_ids = text_inputs.input_ids
+        
+        caption_embeds = self.models['text_encoder'](text_input_ids.to(device))
 
+        return caption_embeds
+
+ 
     def get_input(self, batch):
         z = self.models['vae'].encode(batch["image"]).latent_dist.sample()
+
         context = self.models['text_encoder'].encode(batch["caption"])
 
         _t = torch.rand(z.shape[0]).to(z.device)
@@ -144,7 +166,8 @@ class Trainer():
         vae = AutoencoderKL.from_pretrained(
             pretrained_model_name_or_path=config["vae"]
         ).to(device)
-        text_encoder = FrozenCLIPEmbedder().to(device)
+        tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path=config["tokenizer"]).to(device)
+        text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path=config["text_encoder"]).to(device)
         scheduler = DDIMScheduler.from_pretrained(
             pretrained_model_name_or_path=config["scheduler"]
         )
@@ -158,6 +181,7 @@ class Trainer():
         models = {
             "unet": unet,
             "vae": vae,
+            "tokenizer": tokenizer,
             "text_encoder": text_encoder,
             "scheduler": scheduler,
         }
