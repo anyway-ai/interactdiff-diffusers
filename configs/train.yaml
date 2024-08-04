@@ -1,6 +1,7 @@
 models_path:
   unet: "/home/interactdiff-diffusers/models/unet"
   vae: "/home/interactdiff-diffusers/models/vae"
+  tokenizer: "/home/interactdiff-diffusers/models/tokenizer"
   text_encoder: "/home/interactdiff-diffusers/models/text_encoder"
   scheduler: "/home/interactdiff-diffusers/models/scheduler"
 
