@@ -253,4 +253,4 @@ if __name__ == '__main__':
         up_block_types=tuple(config.get("up_block_types", [])),
         only_cross_attention=config.get("only_cross_attention", False),
         block_out_channels=tuple(config.get("block_out_channels", [])),
-        layers_per_block=config.get
+        layers_per_block=config.get)
