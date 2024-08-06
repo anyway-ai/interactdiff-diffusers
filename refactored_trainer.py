@@ -10,15 +10,17 @@ from torch.cuda.amp import GradScaler
 
 from diffusers import DDIMScheduler, AutoencoderKL
 from diffusers.optimization import get_constant_schedule_with_warmup
+from diffusers.models.attention import GatedSelfAttentionDense
+from diffusers.utils.torch_utils import randn_tensor
+
 
 from transformers import CLIPTokenizer, CLIPTextModel
 
 from safetensors.torch import load_file
 
 from models.unet.unet import InteractDiffusionUNet2DConditionModel
-from models.text_encoder.text_encoder import FrozenCLIPEmbedder
 from dataset.concat_dataset import ConCatDataset
-from preprocessor import preprocessor
+from preprocessor import prepare_interactdiff_inputs
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -35,33 +37,11 @@ class Trainer():
         self.train_loader = self.get_dataloader()
 
         self.models['unet'].train()
-
-    def run_one_step(self, batch):
-        batch = self.batch_to_device(batch, device)
-
-        x_start, timesteps, context, grounding_input = self.get_input(batch)
-
-        noise = torch.randn_like(x_start)
-        noise = noise * self.models['scheduler'].init_noise_sigma
-
-        x_noisy = self.models['scheduler'].add_noise(original_samples = x_start, noise = noise, timesteps = timesteps)
-        x_noisy = self.models['scheduler'].scale_model_input(x_noisy, timesteps)
-
-        cross_attention_kwargs = {}
-        cross_attention_kwargs['gligen'] = grounding_input
-        
-        output = self.models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
-        
-        loss = torch.nn.functional.mse_loss(output.sample, noise) * self.l_simple_weight
-
-        return loss
+        self.vae_scale_factor = 2 ** (len(self.models['vae'].config.block_out_channels) - 1)
+        self.height = self.models['unet'].config.sample_size * self.vae_scale_factor
+        self.width = self.models['unet'].config.sample_size * self.vae_scale_factor
     
     def encode_caption(self, caption):
-        if caption is not None and isinstance(caption, str):
-            batch_size = 1
-        elif caption is not None and isinstance(caption, list):
-            batch_size = len(caption)
-
         text_inputs = self.models['tokenizer'](
                 caption,
                 padding="max_length",
@@ -72,22 +52,74 @@ class Trainer():
         text_input_ids = text_inputs.input_ids
         
         caption_embeds = self.models['text_encoder'](text_input_ids.to(device))
+        caption_embeds = caption_embeds[0]
+
+        num_images_per_prompt = 1
+        bs_embed, seq_len, _ = caption_embeds.shape
+        caption_embeds = caption_embeds.repeat(1, num_images_per_prompt, 1)
+        caption_embeds = caption_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
 
         return caption_embeds
 
  
     def get_input(self, batch):
+        print(len(batch['caption']))
         z = self.models['vae'].encode(batch["image"]).latent_dist.sample()
 
-        context = self.models['text_encoder'].encode(batch["caption"])
+        context = self.encode_caption(batch["caption"])
 
-        _t = torch.rand(z.shape[0]).to(z.device)
-        t = (torch.pow(_t, 1) * 1000).long()
-        t = torch.where(t != 1000, t, 999)
+        self.models['scheduler'].set_timesteps(self.config['training_params']['num_timesteps'], device=device)
 
-        grounding_input = preprocessor(batch)
+        timesteps = torch.randint(0, self.models['scheduler'].config.num_train_timesteps, (int(self.config['training_params']['batch_size']),)).to(device)
+
+        grounding_input = prepare_interactdiff_inputs(self.models, batch, int(self.config['training_params']['batch_size']), device)
         
-        return z, t, context, grounding_input
+        return z, timesteps, context, grounding_input
+    
+    def run_one_step(self, batch):
+        batch = self.batch_to_device(batch, device)
+
+        x_start, timesteps, context, cross_attention_kwargs = self.get_input(batch)
+
+        self.enable_fuser(True)
+
+        num_channels_latents = self.models['unet'].config.in_channels
+
+        noise = self.prepare_latents(
+            self.config['training_params']['batch_size'] * 1,
+            num_channels_latents,
+            self.height,
+            self.width,
+            context.dtype,
+            device,
+            generator = None,
+            latents = None,
+        )
+
+        x_noisy = self.models['scheduler'].add_noise(original_samples = x_start, noise = noise, timesteps = timesteps)
+        x_noisy = self.models['scheduler'].scale_model_input(x_noisy, timesteps)
+        
+        output = self.models['unet'](x_noisy, timesteps, encoder_hidden_states = context, cross_attention_kwargs = cross_attention_kwargs)
+        
+        loss = torch.nn.functional.mse_loss(output.sample, noise) * self.l_simple_weight
+
+        return loss
+    
+    def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator=None, latents=None):
+        shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
+        if latents is None:
+            latents = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
+        else:
+            latents = latents.to(device)
+
+        # scale the initial noise by the standard deviation required by the scheduler
+        latents = latents * self.models['scheduler'].init_noise_sigma
+        return latents
+    
+    def enable_fuser(self, enabled=True):
+        for module in self.models['unet'].modules():
+            if type(module) is GatedSelfAttentionDense:
+                module.enabled = enabled
 
     def batch_to_device(self, batch, device):
         for k in batch:
@@ -166,7 +198,7 @@ class Trainer():
         vae = AutoencoderKL.from_pretrained(
             pretrained_model_name_or_path=config["vae"]
         ).to(device)
-        tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path=config["tokenizer"]).to(device)
+        tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path=config["tokenizer"])
         text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path=config["text_encoder"]).to(device)
         scheduler = DDIMScheduler.from_pretrained(
             pretrained_model_name_or_path=config["scheduler"]
@@ -196,9 +228,12 @@ class Trainer():
 
             loss = self.run_one_step(batch)
 
-            self.scaler.scale(loss).backward()
-            self.scaler.step(self.opt)
-            self.scaler.update()
+            #self.scaler.scale(loss).backward()
+            #self.scaler.step(self.opt)
+            #self.scaler.update()
+
+            loss.backward()
+            self.opt.step()
             self.lr_scheduler.step()
             self.opt.zero_grad()
 
