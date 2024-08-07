@@ -112,7 +112,7 @@ class InteractDiffusionInteractionProjection(nn.Module):
         return objs
     
 
-class InteractDiffusionUNet2DConditionModel(UNet2DConditionModel):
+class SDXL_UNet(UNet2DConditionModel):
     def __init__(self,
         sample_size: Optional[int] = None,
         in_channels: int = 4,
@@ -168,7 +168,7 @@ class InteractDiffusionUNet2DConditionModel(UNet2DConditionModel):
         cross_attention_norm: Optional[str] = None,
         addition_embed_type_num_heads: int = 64,
     ):
-        super(InteractDiffusionUNet2DConditionModel, self).__init__(
+        super(UNet2DConditionModel, self).__init__(
             sample_size=sample_size,
             in_channels=in_channels,
             out_channels=out_channels,
@@ -241,7 +241,7 @@ if __name__ == '__main__':
 
 
     config = load_config("Unet_config.json")
-    model = InteractDiffusionUNet2DConditionModel(
+    model = SDXL_UNet(
         sample_size=config.get("sample_size"),
         in_channels=config.get("in_channels", 4),
         out_channels=config.get("out_channels", 4),
