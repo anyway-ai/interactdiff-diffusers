@@ -40,7 +40,7 @@ def prepare_interactdiff_inputs(models, batch, batch_size, device):
     action_text_embeddings = torch.zeros(max_objs, 768, device=device, dtype=encoder_dtype)
     action_text_embeddings[:n_objs] = _text_embeddings[n_objs*2:n_objs*3]"""
 
-    encoder_dtype = models['text_encoder'].dtype
+    encoder_dtype = models.dtype
 
     subject_boxes = batch['subject_boxes']
     object_boxes = batch['object_boxes']

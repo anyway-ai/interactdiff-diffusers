@@ -32,15 +32,15 @@ class Trainer():
 
         self.l_simple_weight = 1
 
-        self.models = self.load_models(self.config["models_path"])
-        self.opt, self.scaler, self.lr_scheduler, _, _ = self.create_opt(self.config['training_params'])
+        #self.models = self.load_models(self.config["models_path"])
+        #self.opt, self.scaler, self.lr_scheduler, _, _ = self.create_opt(self.config['training_params'])
         self.train_loader = self.get_dataloader()
 
-        self.models['unet'].train()
-        self.enable_fuser(True)
-        self.vae_scale_factor = 2 ** (len(self.models['vae'].config.block_out_channels) - 1)
-        self.height = self.models['unet'].config.sample_size * self.vae_scale_factor
-        self.width = self.models['unet'].config.sample_size * self.vae_scale_factor
+        #self.models['unet'].train()
+        #self.enable_fuser(True)
+        #self.vae_scale_factor = 2 ** (len(self.models['vae'].config.block_out_channels) - 1)
+        #self.height = self.models['unet'].config.sample_size * self.vae_scale_factor
+        #self.width = self.models['unet'].config.sample_size * self.vae_scale_factor
     
     def encode_caption(self, caption):
         text_inputs = self.models['tokenizer'](
@@ -64,7 +64,6 @@ class Trainer():
 
  
     def get_input(self, batch):
-        print(len(batch['caption']))
         z = self.models['vae'].encode(batch["image"]).latent_dist.sample()
 
         context = self.encode_caption(batch["caption"])

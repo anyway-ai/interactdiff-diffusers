@@ -11,7 +11,7 @@ training_params:
   lr_warmup_steps: 10000
   scheduler_type: 'constant'
   amp_enabled: False
-  batch_size: 2
+  batch_size: 1
   num_workers: 1
   num_iterations: 100
   num_timesteps: 1000
