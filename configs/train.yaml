@@ -15,6 +15,8 @@ training_params:
   num_workers: 1
   num_iterations: 100
   num_timesteps: 1000
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1
 
 train_dataset_names:
   HicoDetHOI:

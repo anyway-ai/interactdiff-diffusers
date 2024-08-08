@@ -37,6 +37,7 @@ class Trainer():
         self.train_loader = self.get_dataloader()
 
         self.models['unet'].train()
+        self.enable_fuser(True)
         self.vae_scale_factor = 2 ** (len(self.models['vae'].config.block_out_channels) - 1)
         self.height = self.models['unet'].config.sample_size * self.vae_scale_factor
         self.width = self.models['unet'].config.sample_size * self.vae_scale_factor
@@ -81,7 +82,7 @@ class Trainer():
 
         x_start, timesteps, context, cross_attention_kwargs = self.get_input(batch)
 
-        self.enable_fuser(True)
+        #self.enable_fuser(True)
 
         num_channels_latents = self.models['unet'].config.in_channels
 
@@ -227,10 +228,6 @@ class Trainer():
             self.batch_to_device(batch, device)
 
             loss = self.run_one_step(batch)
-
-            #self.scaler.scale(loss).backward()
-            #self.scaler.step(self.opt)
-            #self.scaler.update()
 
             loss.backward()
             self.opt.step()
