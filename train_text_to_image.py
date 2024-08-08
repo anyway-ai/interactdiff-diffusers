@@ -35,6 +35,10 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
+from models.unet.unet import InteractDiffusionUNet2DConditionModel
+import json
+from safetensors.torch import load_file
+
 
 if is_wandb_available():
     import wandb
@@ -596,9 +600,16 @@ def main():
             args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision, variant=args.variant
         )
 
-    unet = UNet2DConditionModel.from_pretrained(
+    """unet = UNet2DConditionModel.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="unet", revision=args.non_ema_revision
-    )
+    )"""
+
+    with open("./models/unet/config.yaml", "r") as f:
+            unet_configs = json.load(f)
+
+    unet = InteractDiffusionUNet2DConditionModel(**unet_configs)
+    unet_state_dict = load_file(f"./models/unet/diffusion_pytorch_model.safetensors")
+    unet.load_state_dict(unet_state_dict)
 
     # Freeze vae and text_encoder and set unet to trainable
     vae.requires_grad_(False)
